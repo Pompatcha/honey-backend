@@ -6,10 +6,15 @@ const jwt = require("jsonwebtoken");
 const app = express();
 app.use(express.json());
 const cors = require("cors");
-app.use(cors({ origin: "http://127.0.0.1:5500", credentials: true }));
+const FRONTEND_URL =
+  process.env.NODE_ENV === "production"
+    ? "https://www.siam10winery.com"
+    : "http://127.0.0.1:5500";
+
+app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
 const secreatKey = 'pompatcharin';
-mongoose.connect('mongodb+srv://pompatcharin:Porawat1983%40%40@cluster0.qloav.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0', {
+mongoose.connect(process.env.MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
