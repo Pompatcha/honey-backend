@@ -40,6 +40,10 @@ const UserSchema = new mongoose.Schema({
 // const Product = mongoose.model("Product", ProductSchema);
 const User = mongoose.model("User", UserSchema);
 
+app.get("/", async (req, res) => {
+  res.json("Welcome to our API!");
+});
+
 app.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
