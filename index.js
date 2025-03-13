@@ -75,11 +75,16 @@ passport.serializeUser((user, done) => {
 });
 
 // Deserialize user info from the session by finding the user in the database
-passport.deserializeUser((id, done) => {
-  User.findById(id, (err, user) => {
-    done(err, user);
-  });
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id); // Use async/await
+    done(null, user);
+  } catch (err) {
+    done(err, null);
+  }
 });
+
+
 
 // ----------------------
 // Configure Google Strategy with Passport
