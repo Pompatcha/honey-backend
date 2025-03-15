@@ -59,9 +59,14 @@ const User = mongoose.model("User", UserSchema);
 // Passport requires sessions for the OAuth flow.
 app.use(
   session({
-    secret: process.env.SESSION_SECRET || "some secret", // Secret key for session encryption
-    resave: false, // Avoid resaving session if not modified
-    saveUninitialized: false, // Don't create a session until something is stored
+    secret: process.env.SESSION_SECRET || "some secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      secure: process.env.NODE_ENV === "production", // Secure cookies in production
+      httpOnly: true, // Prevent client-side access
+      sameSite: "lax", // Allow cross-origin requests with credentials
+    },
   })
 );
 
@@ -83,8 +88,6 @@ passport.deserializeUser(async (id, done) => {
     done(err, null);
   }
 });
-
-
 
 // ----------------------
 // Configure Google Strategy with Passport
@@ -189,9 +192,13 @@ app.get(
   passport.authenticate("google", { failureRedirect: "/" }),
   (req, res) => {
     // Generate a JWT token for the authenticated user
-    const token = jwt.sign({ userId: req.user._id }, process.env.SECREAT_KEY, {
-      expiresIn: "1h",
-    });
+    const token = jwt.sign(
+      { userId: req.user._id, email: req.user?.email, name: req.user?.name },
+      process.env.SECREAT_KEY,
+      {
+        expiresIn: "1h",
+      }
+    );
     // Redirect to the frontend, passing the token as a query parameter
     res.redirect(`${frontendURL}?token=${token}`);
   }
@@ -213,9 +220,13 @@ app.get(
   passport.authenticate("facebook", { failureRedirect: "/" }),
   (req, res) => {
     // Generate a JWT token for the authenticated user
-    const token = jwt.sign({ userId: req.user._id }, process.env.SECREAT_KEY, {
-      expiresIn: "1h",
-    });
+    const token = jwt.sign(
+      { userId: req.user._id, email: req.user?.email, name: req.user?.name },
+      process.env.SECREAT_KEY,
+      {
+        expiresIn: "1h",
+      }
+    );
     // Redirect to the frontend, passing the token as a query parameter
     res.redirect(`${frontendURL}?token=${token}`);
   }
@@ -228,6 +239,40 @@ app.get(
 // Home route to test if our API is working
 app.get("/", async (req, res) => {
   res.json("Welcome to our API!");
+});
+
+app.get("/session", (req, res) => {
+  if (req.isAuthenticated()) {
+    res.json({ user: req.user });
+  } else {
+    res.status(401).json({ error: "Not authenticated" });
+  }
+});
+
+// Logout route
+app.get("/logout", (req, res) => {
+  try {
+    // Logout for Passport (if authenticated)
+    req.logout((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+
+      // Destroy the session after logging out
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({ error: "Session destroy failed" });
+        }
+
+        // Clear the session cookie to ensure it's removed from the client-side
+        res.clearCookie("connect.sid"); // Use the cookie name configured by express-session
+
+        return res.status(200).json({ message: "Logged out successfully" });
+      });
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Logout error" });
+  }
 });
 
 // Login route using email and password authentication
