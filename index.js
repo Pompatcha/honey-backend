@@ -105,9 +105,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // Ensure cookies are only sent over HTTPS in production
-      httpOnly: true, // Prevent client-side access to the cookie
-      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin authentication
+      secure: process.env.NODE_ENV === "production", // Only send cookies over HTTPS
+      httpOnly: true,
+      sameSite: "none",
     },
   })
 );
@@ -139,7 +139,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID, // Your Google Client ID
       clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Your Google Client Secret
-      callbackURL: "/auth/google/callback", // URL to redirect back after login
+      callbackURL: process.env.GOOGLE_CALLBACK_URL, // URL to redirect back after login
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -181,7 +181,7 @@ passport.use(
     {
       clientID: process.env.FACEBOOK_APP_ID, // Your Facebook App ID
       clientSecret: process.env.FACEBOOK_APP_SECRET, // Your Facebook App Secret
-      callbackURL: "/auth/facebook/callback", // URL to redirect back after login
+      callbackURL: process.env.FACEBOOK_CALLBACK_URL, // URL to redirect back after login
       profileFields: ["id", "displayName", "emails"], // Request these fields from Facebook
     },
     async (accessToken, refreshToken, profile, done) => {
