@@ -105,9 +105,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // Secure cookies in production
-      httpOnly: true, // Prevent client-side access
-      sameSite: "lax", // Allow cross-origin requests with credentials
+      secure: process.env.NODE_ENV === "production", // Ensure cookies are only sent over HTTPS in production
+      httpOnly: true, // Prevent client-side access to the cookie
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax", // Allow cross-origin authentication
     },
   })
 );
