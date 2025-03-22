@@ -53,6 +53,48 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model("User", UserSchema);
 
+const OrderSchema = new mongoose.Schema(
+  {
+    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+    items: [
+      {
+        product: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: "Product",
+          required: true,
+        },
+        quantity: { type: Number, required: true, min: 1 },
+        price: { type: Number, required: true },
+      },
+    ],
+    totalAmount: { type: Number, required: true },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid", "failed", "refunded"],
+      default: "pending",
+    },
+    paymentMethod: {
+      type: String,
+      enum: ["credit_card", "paypal", "bank_transfer"],
+      required: true,
+    },
+    shippingAddress: {
+      fullName: { type: String, required: true },
+      address: { type: String, required: true },
+      city: { type: String, required: true },
+      postalCode: { type: String, required: true },
+      country: { type: String, required: true },
+    },
+    status: {
+      type: String,
+      enum: ["processing", "shipped", "delivered", "canceled"],
+      default: "processing",
+    },
+  },
+  { timestamps: true }
+);
+module.exports = mongoose.model("Order", OrderSchema);
+
 // ----------------------
 // Set up Passport & Sessions
 // ----------------------
@@ -97,7 +139,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID, // Your Google Client ID
       clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Your Google Client Secret
-      callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback", // URL to redirect back after login
+      callbackURL: "/auth/google/callback", // URL to redirect back after login
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -139,8 +181,7 @@ passport.use(
     {
       clientID: process.env.FACEBOOK_APP_ID, // Your Facebook App ID
       clientSecret: process.env.FACEBOOK_APP_SECRET, // Your Facebook App Secret
-      callbackURL:
-        process.env.FACEBOOK_CALLBACK_URL || "/auth/facebook/callback", // URL to redirect back after login
+      callbackURL: "/auth/facebook/callback", // URL to redirect back after login
       profileFields: ["id", "displayName", "emails"], // Request these fields from Facebook
     },
     async (accessToken, refreshToken, profile, done) => {
