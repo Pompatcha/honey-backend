@@ -11,6 +11,7 @@ const GoogleStrategy = require("passport-google-oauth20").Strategy; // Google OA
 const FacebookStrategy = require("passport-facebook").Strategy; // Facebook OAuth strategy for Passport
 const session = require("express-session"); // To enable session support for Passport
 const cors = require("cors"); // Middleware to enable Cross-Origin Resource Sharing
+const stripe = require('stripe')('pk_live_51PUfDr2M9cK1ZaEDgkMPgo1PB30Dzwd04wzEgmWS8m8vb1yT1pvwRdSv8wu6flKczmBFyA9XOU8pA1L7v6PuAx3g00ws8bbkKH');
 
 // Initialize Express application
 const app = express();
@@ -53,48 +54,6 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model("User", UserSchema);
 
-const OrderSchema = new mongoose.Schema(
-  {
-    user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
-    items: [
-      {
-        product: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Product",
-          required: true,
-        },
-        quantity: { type: Number, required: true, min: 1 },
-        price: { type: Number, required: true },
-      },
-    ],
-    totalAmount: { type: Number, required: true },
-    paymentStatus: {
-      type: String,
-      enum: ["pending", "paid", "failed", "refunded"],
-      default: "pending",
-    },
-    paymentMethod: {
-      type: String,
-      enum: ["credit_card", "paypal", "bank_transfer"],
-      required: true,
-    },
-    shippingAddress: {
-      fullName: { type: String, required: true },
-      address: { type: String, required: true },
-      city: { type: String, required: true },
-      postalCode: { type: String, required: true },
-      country: { type: String, required: true },
-    },
-    status: {
-      type: String,
-      enum: ["processing", "shipped", "delivered", "canceled"],
-      default: "processing",
-    },
-  },
-  { timestamps: true }
-);
-module.exports = mongoose.model("Order", OrderSchema);
-
 // ----------------------
 // Set up Passport & Sessions
 // ----------------------
@@ -105,9 +64,9 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: {
-      secure: process.env.NODE_ENV === "production", // Only send cookies over HTTPS
-      httpOnly: true,
-      sameSite: "none",
+      secure: process.env.NODE_ENV === "production", // Secure cookies in production
+      httpOnly: true, // Prevent client-side access
+      sameSite: "lax", // Allow cross-origin requests with credentials
     },
   })
 );
@@ -139,7 +98,7 @@ passport.use(
     {
       clientID: process.env.GOOGLE_CLIENT_ID, // Your Google Client ID
       clientSecret: process.env.GOOGLE_CLIENT_SECRET, // Your Google Client Secret
-      callbackURL: process.env.GOOGLE_CALLBACK_URL, // URL to redirect back after login
+      callbackURL: process.env.GOOGLE_CALLBACK_URL || "/auth/google/callback", // URL to redirect back after login
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
@@ -181,7 +140,8 @@ passport.use(
     {
       clientID: process.env.FACEBOOK_APP_ID, // Your Facebook App ID
       clientSecret: process.env.FACEBOOK_APP_SECRET, // Your Facebook App Secret
-      callbackURL: process.env.FACEBOOK_CALLBACK_URL, // URL to redirect back after login
+      callbackURL:
+        process.env.FACEBOOK_CALLBACK_URL || "/auth/facebook/callback", // URL to redirect back after login
       profileFields: ["id", "displayName", "emails"], // Request these fields from Facebook
     },
     async (accessToken, refreshToken, profile, done) => {
@@ -368,6 +328,51 @@ app.post("/register", async (req, res) => {
     res.status(201).json({ message: "User registered successfully" });
   } catch (error) {
     res.status(500).json({ error: "Error registering user" });
+  }
+});
+
+app.post('/create-payment-link', async (req, res) => {
+  // Mocking data (simulate what frontend might send)
+  const mockData = {
+    courseId: 'course123', // Mock Course ID
+    courseName: 'Introduction to Programming', // Mock Course Name
+    coursePrice: 4999, // Mock Course Price in cents ($49.99)
+    currency: 'usd', // Currency
+    returnUrl: 'payment-success', // Redirect URL after payment
+  };
+
+  try {
+    // Prepare the data to create the Stripe Checkout session
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'], // Stripe supports 'card' payment method
+      line_items: [
+        {
+          price_data: {
+            currency: mockData.currency, // Currency
+            product_data: {
+              name: mockData.courseName, // Course name as product
+            },
+            unit_amount: mockData.coursePrice, // Price in cents (4999 = $49.99)
+          },
+          quantity: 1, // Quantity (one course)
+        },
+      ],
+      mode: 'payment', // Payment mode
+      success_url: `http://loclahost:5500`, // Success URL
+      cancel_url: `http://loclahost:5500`, // Cancel URL
+      metadata: {
+        courseId: mockData.courseId,
+      },
+    });
+
+    // Respond with the session URL to redirect user to Stripe Checkout
+    res.json({
+      success: true,
+      checkoutUrl: session.url, // The URL to redirect the user to Stripe Checkout
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, error: error.message });
   }
 });
 
